@@ -1,0 +1,92 @@
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Cint generated files
+*_C.d
+*rdict.pcm
+
+# Fortran module files
+*.mod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# build directory
+build/
+build_o2/
+xbuild/
+
+# common editor backups
+*.swp
+*~
+\#*\#
+
+# doxygen stuff
+html-doc/
+
+header/AliceO2Config.h
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles
+Makefile
+cmake_install.cmake
+compile_commands.json
+
+# IDEs files
+.cache
+.cproject
+.devcontainer*
+.project
+.idea
+.settings
+.vscode
+.ycm_extra_conf.py
+Session.vim
+CMakeLists.txt.user
+
+# Datafiles
+gphysi.dat
+*.root
+*.o2tf
+
+# rbenv files
+.ruby-version
+
+# macOS
+.DS_Store
+
+# bazel
+bazel-*
+
+# direnv
+.envrc
+
+# git wrappers
+.sl
+
+# LSP support on macOS with vim
+.clangd
+DataFormats/Detectors/CTP/include/DataFormatsCTP/Scalers.h
+dpl-config.json
+O2.code-workspace
