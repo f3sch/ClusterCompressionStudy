@@ -1,0 +1,122 @@
+From ed7c22e071d08d75883663876d0468ba60313558 Mon Sep 17 00:00:00 2001
+From: Felix Schlepper <felix.schlepper@cern.ch>
+Date: Wed, 4 Mar 2026 10:35:30 +0100
+Subject: [PATCH] cluster binary dump
+
+Signed-off-by: Felix Schlepper <felix.schlepper@cern.ch>
+---
+ .../include/ITSMFTReconstruction/Clusterer.h  |  4 ++
+ .../common/reconstruction/src/Clusterer.cxx   | 47 +++++++++++++++++++
+ 2 files changed, 51 insertions(+)
+
+diff --git a/Detectors/ITSMFT/common/reconstruction/include/ITSMFTReconstruction/Clusterer.h b/Detectors/ITSMFT/common/reconstruction/include/ITSMFTReconstruction/Clusterer.h
+index c66468905d..dca50ebdcb 100644
+--- a/Detectors/ITSMFT/common/reconstruction/include/ITSMFTReconstruction/Clusterer.h
++++ b/Detectors/ITSMFT/common/reconstruction/include/ITSMFTReconstruction/Clusterer.h
+@@ -188,6 +188,10 @@ class Clusterer
+       std::fill(std::begin(column1), std::end(column1), -1);
+       std::fill(std::begin(column2), std::end(column2), -1);
+     }
++
++    bool StartOfNewTF{true};
++    static constexpr bool DumpClusterBin{true};
++    void dumppCluster(const ChipPixelData* chip, const BBox& box);
+   };
+   //=========================================================
+ 
+diff --git a/Detectors/ITSMFT/common/reconstruction/src/Clusterer.cxx b/Detectors/ITSMFT/common/reconstruction/src/Clusterer.cxx
+index 42e535e810..e7744c6ecc 100644
+--- a/Detectors/ITSMFT/common/reconstruction/src/Clusterer.cxx
++++ b/Detectors/ITSMFT/common/reconstruction/src/Clusterer.cxx
+@@ -12,6 +12,7 @@
+ /// \file Clusterer.cxx
+ /// \brief Implementation of the ITS cluster finder
+ #include <algorithm>
++#include <fstream>
+ #include <TTree.h>
+ #include "Framework/Logger.h"
+ #include "ITSMFTReconstruction/Clusterer.h"
+@@ -27,6 +28,7 @@ using namespace o2::itsmft;
+ void Clusterer::process(int nThreads, PixelReader& reader, CompClusCont* compClus,
+                         PatternCont* patterns, ROFRecCont* vecROFRec, MCTruth* labelsCl)
+ {
++  bool startTF{true};
+ #ifdef _PERFORM_TIMING_
+   mTimer.Start(kFALSE);
+ #endif
+@@ -100,6 +102,10 @@ void Clusterer::process(int nThreads, PixelReader& reader, CompClusCont* compClu
+                                labelsCl ? reader.getDigitsMCTruth() : nullptr,
+                                labelsCl ? &mThreads[ith]->labels : nullptr, rof);
+       } else { // put directly to the destination
++        if (startTF) {
++          startTF = false;
++          mThreads[0]->StartOfNewTF = true;
++        }
+         mThreads[0]->process(0, nFired, compClus, patterns, labelsCl ? reader.getDigitsMCTruth() : nullptr, labelsCl, rof);
+       }
+     }
+@@ -270,6 +276,9 @@ void Clusterer::ClustererThread::finishChip(ChipPixelData* curChipData, CompClus
+       }
+       preCluster2.index = -1;
+     }
++    if constexpr (DumpClusterBin) {
++      dumppCluster(curChipData, bbox);
++    }
+     if (bbox.isAcceptableSize()) {
+       parent->streamCluster(pixArrBuff, &labelsBuff, bbox, parent->mPattIdConverter, compClusPtr, patternsPtr, labelsClusPtr, nlab);
+     } else {
+@@ -326,6 +335,12 @@ void Clusterer::ClustererThread::finishChipSingleHitFast(uint32_t hit, ChipPixel
+     }
+   }
+ 
++  if constexpr (DumpClusterBin) {
++    BBox bbox(curChipData->getChipID());
++    bbox.adjust(row, col);
++    dumppCluster(curChipData, bbox);
++  }
++
+   // add to compact clusters, which must be always filled
+   unsigned char patt[ClusterPattern::MaxPatternBytes]{0x1 << (7 - (0 % 8))}; // unrolled 1 hit version of full loop in finishChip
+   uint16_t pattID = (parent->mPattIdConverter.size() == 0) ? CompCluster::InvalidPatternID : parent->mPattIdConverter.findGroupID(1, 1, patt);
+@@ -337,6 +352,38 @@ void Clusterer::ClustererThread::finishChipSingleHitFast(uint32_t hit, ChipPixel
+   compClusPtr->emplace_back(row, col, pattID, curChipData->getChipID());
+ }
+ 
++void Clusterer::ClustererThread::dumppCluster(const Clusterer::ChipPixelData* chip, const Clusterer::BBox& bbox)
++{
++  static std::ofstream out;
++  if (StartOfNewTF) {
++    StartOfNewTF = false;
++    static int counter{0};
++    out = std::ofstream(std::format("clusters_{}.bin", counter++), std::ios::binary);
++  }
++  uint32_t sensorId = chip->getChipID();
++  uint16_t row = bbox.rowMin;
++  uint16_t col = bbox.colMin;
++  uint16_t height = bbox.rowSpan();
++  uint16_t width = bbox.colSpan();
++  out.write(reinterpret_cast<const char*>(&sensorId), 4);
++  out.write(reinterpret_cast<const char*>(&row), 2);
++  out.write(reinterpret_cast<const char*>(&col), 2);
++  out.write(reinterpret_cast<const char*>(&height), 2);
++  out.write(reinterpret_cast<const char*>(&width), 2);
++  if (height == 1 && width == 1) {
++    return;
++  }
++  size_t nbytes = (size_t(height) * width + 7) / 8;
++  std::vector<uint8_t> patt(nbytes, 0);
++  for (const auto& pix : pixArrBuff) {
++    int ir = pix.getRowDirect() - bbox.rowMin;
++    int ic = pix.getCol() - bbox.colMin;
++    int bitIdx = ir * width + ic;
++    patt[bitIdx >> 3] |= (0x1 << (7 - (bitIdx % 8)));
++  }
++  out.write(reinterpret_cast<const char*>(patt.data()), nbytes);
++}
++
+ //__________________________________________________
+ Clusterer::Clusterer() : mPattIdConverter()
+ {
+-- 
+2.52.0
+
