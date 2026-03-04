@@ -184,7 +184,7 @@ int main(int argc, char** argv)
               totalRawBytes / (1024.0 * 1024.0));
   std::printf("\n");
 
-  constexpr int ITERATIONS = 3;
+  constexpr int ITERATIONS = 5;
   auto compressors = allCompressors();
 
   // Pre-serialize each TF for each layout (done once, outside timing loop)
@@ -227,7 +227,7 @@ int main(int argc, char** argv)
       Dict dict;
       if (comp->supportsDict() && stf.buffers.size() > 1) {
         std::vector<std::span<const uint8_t>> samples;
-        size_t trainCount = std::min<size_t>(stf.buffers.size(), 100);
+        size_t trainCount = std::min<size_t>(stf.buffers.size(), 1);
         for (size_t i = 0; i < trainCount; ++i)
           samples.emplace_back(stf.buffers[i]);
         dict = comp->trainDict(samples);
