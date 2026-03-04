@@ -39,6 +39,8 @@ def plot_scatter(df, x_col, y_col, x_label, y_label, title, outfile):
         marker = LAYOUT_MARKERS.get(row["Layout"], "x")
         edge = "black" if row["Dict"] else color
         fill = "none" if row["Dict"] else color
+        if row["Dict"]:  # dict do not seem to help so drop it
+            continue
 
         ax.scatter(
             row[x_col],
