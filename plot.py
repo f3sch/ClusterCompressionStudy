@@ -70,6 +70,10 @@ def plot_scatter(df, x_col, y_col, x_label, y_label, title, outfile):
         [], [], c="none", edgecolors="black", label="with dict", s=80, linewidths=1.5
     )
 
+    # TopoDict
+    topoDictComp = 1.89
+    plt.axvline(x=topoDictComp, color="red", linestyle="--", label="TopoDict")
+
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
     ax.set_yscale("log")
